@@ -4,12 +4,20 @@ const fs = require('fs');
 // path module
 const path = require('path');
 const mime = require('mime');
+const moment = require('moment');
 const server = http.createServer();
 
 const __HTML_PATH__ = 'E:\\svn\\puyuba_promotion\\';
 
 function getDirFileList(strDir,url){
+
     let files  = fs.readdirSync( strDir );
+
+    let strHtml = '<html>\n' +
+        '<head><title>Index of '+path.parse(url).dir+'/'+path.parse(url).base+'</title></head>\n' +
+        '<body>\n' +
+        '<h1>Index of '+path.parse(url).dir+'/'+path.parse(url).base+'</h1><hr><pre>';
+
     console.log ( path.parse(url).dir );
     let strPathHtml  = '';
     strPathHtml += '<div>';
@@ -17,18 +25,24 @@ function getDirFileList(strDir,url){
     for(let strPath of files){
         //顶部显示 ../
         if (flagParaent == 1){
-            strPathHtml += '<p><a href="'+path.join( path.parse(url).dir )+'"  >../</a>'+'</p>';
+            strPathHtml += '<a href="'+path.join( path.parse(url).dir )+'"  >../</a>'+'\r';
         }
         //目录后面加上/
         let stats = fs.statSync(path.join(strDir,strPath));
         if ( stats.isDirectory() ){
             strPath = strPath + '/';
         }
-        strPathHtml += '<p><a href="'+path.join(url,strPath)+'"  >'+strPath+'</a>'+'</p>';
+        let formatDate = moment( stats.atimeMs ).format('YYYY-MM-DD HH:mm:ss'); /*格式化时间*/
+        let filesize = stats.size;
+        if ( filesize == 0) filesize = '';
+        strPathHtml += '<a href="'+path.join(url,strPath)+'"  >'+strPath+'</a>'+'                                              '+formatDate+'                                              '+filesize+'\r';
         flagParaent++;
     }
     strPathHtml += '</div>';
-    return strPathHtml;
+    strHtml += strPathHtml;
+    strHtml += '</pre><hr></body>\n' +
+        '</html>';
+    return strHtml;
 }
 
 server.on('request',(req,res)=>{
@@ -124,7 +138,10 @@ http://mirrors.ustc.edu.cn/alpine/
 <html>
 <head><title>Index of /alpine/</title></head>
 <body>
-<h1>Index of /alpine/</h1><hr><pre><a href="../">../</a>
+<h1>Index of /alpine/</h1>
+<hr>
+<pre>
+<a href="../">../</a>
 <a href="edge/">edge/</a>                                              30-Sep-2015 07:58                   -
 <a href="latest-stable/">latest-stable/</a>                                     31-May-2019 18:14                   -
 <a href="v2.4/">v2.4/</a>                                              19-Dec-2012 15:22                   -
