@@ -1,3 +1,17 @@
+/**
+ express默认项目
+ 启动命令行
+ 安装所有依赖包：
+ $ cd myapp
+ $ npm install
+ 在 MacOS 或 Linux 中，通过如下命令启动此应用：
+ $ DEBUG=nodejsweb:server & npm start
+ 在 Windows 中，通过如下命令启动此应用：
+ set DEBUG=nodejsweb:server & npm start
+ 然后在浏览器中打开 http://localhost:3000/ 网址就可以看到这个应用了。
+ * @type {module:http}
+ */
+
 const http=require('http');
 //fs module
 const fs = require('fs');
@@ -7,7 +21,7 @@ const mime = require('mime');
 const moment = require('moment');
 const server = http.createServer();
 
-const __HTML_PATH__ = 'E:\\svn\\puyuba_promotion\\';
+const __HTML_PATH__ = 'D:\\dev\\puyuba_svn\\puyuba_promotion';
 
 function getDirFileList(strDir,url){
 
