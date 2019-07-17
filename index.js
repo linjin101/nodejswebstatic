@@ -13,7 +13,7 @@ const mime = require('mime');
 const moment = require('moment');
 const server = http.createServer();
 
-const __HTML_PATH__ = 'D:\\dev\\puyuba_svn\\puyuba_promotion';
+const __HTML_PATH__ = 'E:\\';
 // 文件目录html拼接,以后改成模板
 function getDirFileList(strDir,url){
 
@@ -23,7 +23,9 @@ function getDirFileList(strDir,url){
         title = title +path.parse(url).base;
     }
     let strHtml = '<html>\n' +
-        '<head><title>Index of '+title+'</title></head>\n' +
+        '<head><title>Index of '+title+'</title>\n' +
+        '    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>\n' +
+        '</head>\n' +
         '<body>\n' +
         '<h1>Index of '+title+'</h1>\n' +
         '<hr>\n' +
@@ -36,23 +38,75 @@ function getDirFileList(strDir,url){
     //顶部显示 ../
     strPathHtml += '<a href="'+path.join( path.parse(url).dir )+'">../</a>'+'\n';
     for(let strPath of files){
-        //目录后面加上/
-        let stats = fs.statSync(path.join(strDir,strPath));
-        if ( stats.isDirectory() ){
-            strPath = strPath + '/';
+        try{
+            //iberfil.sys是一个将休眠数据保存到磁盘上的系统文件，不能只是通过正常的权限来读取它，因为它拥有磁盘上的所有内存信息，所以它是超级机密的。
+            if ( strPath == 'hiberfil.sys')
+                break;
+            //目录后面加上/
+            let stats = fs.statSync(path.join(strDir,strPath));
+            if ( stats.isDirectory() ){
+                strPath = strPath + '/';
+            }
+            let formatDate = moment( stats.atimeMs ).format('YYYY-MM-DD HH:mm:ss'); /*格式化时间*/
+            let fileSizeNum = stats.size.toString();
+
+            if ( fileSizeNum == 0)
+            {
+                fileSizeNum = '-';
+            }else{
+                // if ( parseInt(fileSizeNum) / ( 1024*1024*1024 ) > 1 )
+                // console.log( parseInt(fileSizeNum) / ( 1024*1024*1024 )  );
+                // 文件大小计算闭包函数
+                fileSizeNum =   (function () {
+                    if ( parseInt(fileSizeNum) < 1024 ) // 大于 1K
+                    {
+                        fileSizeNum += 'B';
+                        return fileSizeNum;
+                    }
+                    if (  parseInt(fileSizeNum) / (1024 * 1024 * 1024 ) > 1 ) // 大于1G
+                    {
+                        fileSizeNum = parseFloat(  (fileSizeNum / (1024 * 1024 * 1024 )).toFixed(2) )  + 'GB';
+                        return fileSizeNum;
+                    }
+                    if ( parseInt(fileSizeNum) / (1024 * 1024) > 1 ) // 大于1M
+                    {
+                        fileSizeNum = parseInt(parseInt(fileSizeNum ) / (1024 * 1024) )  + 'MB';
+                        return fileSizeNum;
+                    }
+                    if ( parseInt(fileSizeNum) / 1024>= 1 ) // 大于 1K
+                    {
+                        fileSizeNum = parseInt(parseInt(fileSizeNum) / 1024 ) + 'KB';
+                        return fileSizeNum;
+                    }
+
+                    return fileSizeNum+'';
+                })();
+            }
+            //计算中文标题长度
+            let tmpStr = strPath.replace(/[\u4e00-\u9fa5]/gi,"aa");
+
+            //计算空格
+            let fileNameSpaceNum = 0;
+            let fileSzieSpaceNum = 0;
+            fileNameSpaceNum = 100 - tmpStr.length;
+            fileSzieSpaceNum = 30 - fileSizeNum.length;
+            const bufFileName = Buffer.alloc(fileNameSpaceNum, ' ');
+            const bufFileSize = Buffer.alloc(fileSzieSpaceNum, ' ');
+            strPathHtml += '<a href="'+path.join(url,strPath)+'">'+strPath+'</a>'+bufFileName.toString()+formatDate+bufFileSize.toString()+fileSizeNum+'\n';
+
+        }catch(err){
+            let errorMsg
+                = '\n'
+                + 'Error ' + new Date().toISOString() + ' ' + url
+                + '\n'
+                + err.stack || err.message || 'unknow error'
+                + '\n'
+            ;
+
+            console.error(errorMsg);
+            // res.end('<pre>' + errorMsg + '</pre>');
+            break;
         }
-        let formatDate = moment( stats.atimeMs ).format('YYYY-MM-DD HH:mm:ss'); /*格式化时间*/
-        let filesize = stats.size;
-        if ( filesize == 0)
-            filesize = '-';
-        //计算空格
-        let fileNameSpaceNum = 0;
-        let fileSzieSpaceNum = 0;
-        fileNameSpaceNum = 100 - strPath.length;
-        fileSzieSpaceNum = 50 - filesize.toString().length;
-        const bufFileName = Buffer.alloc(fileNameSpaceNum, ' ');
-        const bufFileSize = Buffer.alloc(fileSzieSpaceNum, ' ');
-        strPathHtml += '<a href="'+path.join(url,strPath)+'">'+strPath+'</a>'+bufFileName.toString()+formatDate+bufFileSize.toString()+filesize+'\n';
     }
     strPathHtml += '</div>\n';
     strHtml += strPathHtml;
@@ -65,12 +119,11 @@ function getDirFileList(strDir,url){
 
 server.on('request',(req,res)=>{
     // get url
-    var url = req.url;
-    var urlLength = url.toString().length;
-    var endChart =  url.substr(urlLength-1,1);
-    // res.writeHead(404);
-    // res.end(endChart);
-    // console.log( 'file exists:'+path.join(__HTML_PATH__,url,'index.html') );
+    let url = decodeURI(req.url);
+    let urlLength = url.toString().length;
+    let endChart =  url.substr(urlLength-1,1);
+
+    try{
     //判断路径是否存在
     if ( fs.existsSync( path.join(__HTML_PATH__,url) )){
         if(  endChart == '/' ) { //判断最后一个为/
@@ -87,7 +140,7 @@ server.on('request',(req,res)=>{
             }
         }
         else{
-            console.log(path.join(__HTML_PATH__,url));
+            // console.log(path.join(__HTML_PATH__,url));
             let stats = fs.statSync(path.join(__HTML_PATH__,url));
                 // console.log(stats);
                 // console.log("读取文件信息成功！");
@@ -105,24 +158,64 @@ server.on('request',(req,res)=>{
                 }
          }
     }
-    // console.log( url );
+    }catch(err){
+        let errorMsg
+            = '\n'
+            + 'Error ' + new Date().toISOString() + ' ' + url
+            + '\n'
+            + err.stack || err.message || 'unknow error'
+            + '\n'
+        ;
+
+        console.error(errorMsg);
+        res.end('<pre>' + errorMsg + '</pre>');
+    }
+    try{
     // 文件流输出
     let srcpath = path.join(__HTML_PATH__,url);
     if( fs.existsSync(srcpath) && fs.statSync(srcpath).isFile()){
         let type = mime.getType(url);
-        if(type.includes("text")) type=`${type}; charset=utf8`
-        res.writeHead(200,{
-            "Content-Type":type,
-            "server":'nodejs'
-        })
+        // if(type.includes("text")) type=`${type}; charset=utf8`
+        console.log(type);
+        let stats = fs.statSync(path.join(__HTML_PATH__,url));
+        if ( stats.size < 10 * 1024 * 1024  )//小于10M根据type显示
+        {
+            //文件下载用头multipart/form-data
+            res.writeHead(200,{
+                "Content-Type":type,
+                "server":'nodejs'
+            })
+        }
+        else{
+            //文件下载用头multipart/form-data
+            console.log(type);
+            res.writeHead(200,{
+                "Content-Type":"multipart/form-data",
+                "server":'nodejs'
+            })
+        }
+
         fs.createReadStream(srcpath).pipe(res);
     }else{
         res.writeHead(404);
         res.end("404");
     }
+    }catch(err){
+        let errorMsg
+            = '\n'
+            + 'Error ' + new Date().toISOString() + ' ' + url
+            + '\n'
+            + err.stack || err.message || 'unknow error'
+            + '\n'
+        ;
+
+        console.error(errorMsg);
+        res.end('<pre>' + errorMsg + '</pre>');
+    }
 })
 server.listen(8800,()=>{
     console.log("nodejs web static html...");
+    console.log("http://localhost:8800/");
 })
 
 /*
